@@ -1,49 +1,16 @@
-import { useEvent } from 'expo';
-import ExpoIbeaconManager, { ExpoIbeaconManagerView } from 'expo-ibeacon-manager';
-import { Button, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import * as IbeaconManager from 'expo-ibeacon-manager';
+import { SafeAreaView, Text } from 'react-native';
+
+IbeaconManager.requestWhenInUseAuthorization();
+
+IbeaconManager.startScanning("DE62C6D0-005E-4F32-B019-AA45124005CA");
 
 export default function App() {
-  const onChangePayload = useEvent(ExpoIbeaconManager, 'onChange');
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.container}>
-        <Text style={styles.header}>Module API Example</Text>
-        <Group name="Constants">
-          <Text>{ExpoIbeaconManager.PI}</Text>
-        </Group>
-        <Group name="Functions">
-          <Text>{ExpoIbeaconManager.hello()}</Text>
-        </Group>
-        <Group name="Async functions">
-          <Button
-            title="Set value"
-            onPress={async () => {
-              await ExpoIbeaconManager.setValueAsync('Hello from JS!');
-            }}
-          />
-        </Group>
-        <Group name="Events">
-          <Text>{onChangePayload?.value}</Text>
-        </Group>
-        <Group name="Views">
-          <ExpoIbeaconManagerView
-            url="https://www.example.com"
-            onLoad={({ nativeEvent: { url } }) => console.log(`Loaded: ${url}`)}
-            style={styles.view}
-          />
-        </Group>
-      </ScrollView>
+      <Text>123ß</Text>
     </SafeAreaView>
-  );
-}
-
-function Group(props: { name: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.group}>
-      <Text style={styles.groupHeader}>{props.name}</Text>
-      {props.children}
-    </View>
   );
 }
 

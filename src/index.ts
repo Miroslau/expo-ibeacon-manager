@@ -1,5 +1,9 @@
-// Reexport the native module. On web, it will be resolved to ExpoIbeaconManagerModule.web.ts
-// and on native platforms to ExpoIbeaconManagerModule.ts
-export { default } from './ExpoIbeaconManagerModule';
-export { default as ExpoIbeaconManagerView } from './ExpoIbeaconManagerView';
-export * from  './ExpoIbeaconManager.types';
+import ExpoIbeaconManagerModule from "./ExpoIbeaconManagerModule";
+
+export function startScanning(uuid: string): void {
+  return ExpoIbeaconManagerModule.startScanning(uuid);
+}
+
+export function requestWhenInUseAuthorization(): void {
+  return ExpoIbeaconManagerModule.requestWhenInUseAuthorization();
+}
