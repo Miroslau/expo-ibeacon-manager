@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "expo-ibeacon-manager": ["../src/index"],
+      "expo-ibeacon-manager/*": ["../src/*"]
+    }
+  }
+}
