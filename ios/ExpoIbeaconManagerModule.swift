@@ -2,18 +2,14 @@ import ExpoModulesCore
 import CoreLocation
 import CoreBluetooth
 
-private class LocationManagerDelegate: NSObject, CLLocationManagerDelegate {
+private class LocationManagerDelegate: NSObject, CLLocationManagerDelegate, CBCentralManagerDelegate {
     private var locationManager: CLLocationManager!
     private var beaconRegion: CLBeaconRegion!
+    private var centralManager: CBCentralManager!
+    private var sendEvent: ((String, [String: Any]) -> Void)?
     
-    func requestWhenInUseAuthorization(_ resolve: @escaping RCTPromiseResolveBlock) {
-        let locationManager = CLLocationManager()
-        locationManager.delegate = self
-        locationManager.requestWhenInUseAuthorization()
-        let status = CLLocationManager.authorizationStatus()
-        let statusString = statusToString(status)
-        resolve(["status": statusString])
-        
+    func setEventEmitter(_ emitter: @escaping (String, [String: Any]) -> Void) {
+        self.sendEvent = emitter
     }
     
     func startScanning(_ uuid: String) {
@@ -37,6 +33,58 @@ private class LocationManagerDelegate: NSObject, CLLocationManagerDelegate {
         }
     }
     
+    func stopScanning() {
+        if let beaconRegion = self.beaconRegion {
+            self.locationManager.stopMonitoring(for: beaconRegion)
+            self.locationManager.stopRangingBeacons(in: beaconRegion)
+            self.beaconRegion = nil
+            self.locationManager = nil
+        }
+    }
+    
+    func initializeBluetoothManager() {
+        centralManager = CBCentralManager(delegate: self, queue: nil, options: [CBCentralManagerOptionShowPowerAlertKey: false])
+    }
+    
+    func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        var msg = ""
+        switch central.state {
+        case .unknown: msg = "unknown"
+        case .resetting: msg = "resetting"
+        case .unsupported: msg = "unsupported"
+        case .unauthorized: msg = "unauthorized"
+        case .poweredOff: msg = "poweredOff"
+        case .poweredOn: msg = "poweredOn"
+        @unknown default: msg = "unknown"
+        }
+        
+        // bridge send event
+    }
+    
+    func requestAlwaysAuthorization(_ resolve: @escaping RCTPromiseResolveBlock) {
+        let locationManager = CLLocationManager()
+        locationManager.delegate = self
+        locationManager.requestAlwaysAuthorization()
+        let status = CLLocationManager.authorizationStatus()
+        let statusString = statusToString(status)
+        resolve(["status": statusString])
+    }
+    
+    func requestWhenInUseAuthorization(_ resolve: @escaping RCTPromiseResolveBlock) {
+        let locationManager = CLLocationManager()
+        locationManager.delegate = self
+        locationManager.requestWhenInUseAuthorization()
+        let status = CLLocationManager.authorizationStatus()
+        let statusString = statusToString(status)
+        resolve(["status": statusString])
+    }
+    
+    func getAuthorizationStatus(_ resolve: @escaping RCTPromiseResolveBlock) {
+        let status = CLLocationManager.authorizationStatus()
+        resolve(statusToString(status))
+    }
+    
+    // Handle detection of beacons in the region
     func locationManager(
          _ manager: CLLocationManager, didRangeBeacons beacons: [CLBeacon], in region: CLBeaconRegion
        ) {
@@ -50,6 +98,7 @@ private class LocationManagerDelegate: NSObject, CLLocationManagerDelegate {
              "rssi": beacon.rssi, // Beacon signal strength
            ]
          }
+         sendEvent?("beaconsDidRange", ["beacons": beaconArray])
     }
     
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -83,14 +132,32 @@ public class ExpoIbeaconManagerModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ExpoIbeaconManager")
       
-    Events("onBluetoothStateChanged")
+    Events("beaconsDidRange")
       
-      Function("startScanning") { (uuid: String) in
-          locationManagerDelegate.startScanning(uuid)
-      }
+    Function("startScanning") { (uuid: String) in
+      return locationManagerDelegate.startScanning(uuid)
+    }
+    
+    Function("stopScanning") {
+      return locationManagerDelegate.stopScanning()
+    }
       
     AsyncFunction("requestWhenInUseAuthorization") { (promise: Promise) in
-      locationManagerDelegate.requestWhenInUseAuthorization(promise.resolve)
+      return locationManagerDelegate.requestWhenInUseAuthorization(promise.resolve)
+    }
+    
+    AsyncFunction("requestAlwaysAuthorization") { (promise: Promise) in
+      return locationManagerDelegate.requestAlwaysAuthorization(promise.resolve)
+    }
+      
+    AsyncFunction("getAuthorizationStatus") { (promise: Promise) in
+       return locationManagerDelegate.getAuthorizationStatus(promise.resolve)
+    }
+      
+    OnStartObserving {
+      locationManagerDelegate.setEventEmitter { eventName, eventData in
+        self.sendEvent(eventName, eventData)
+      }
     }
   }
 }
