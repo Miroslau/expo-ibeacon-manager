@@ -1,28 +1,24 @@
 import * as IbeaconManager from "expo-ibeacon-manager";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { SafeAreaView, Text, View, Button } from "react-native";
 
+IbeaconManager.requestAlwaysAuthorization();
+
 export default function App() {
-
-  const getPermissionStatus = async () => {
-    return await IbeaconManager.getAuthorizationStatus();
-  };
-
   const handleGetBeaconsByUUID = async () => {
-    const status = await getPermissionStatus();
+    const status = await IbeaconManager.getAuthorizationStatus();
 
-    if (
-      status &&
-      (status === "authorizedAlways" || status === "authorizedWhenInUse")
-    ) {
-      IbeaconManager.startScanning("DE62C6D0-005E-4F32-B019-AA45124005CA")
+    console.log("status: ", status);
+
+    if (status && status !== "unknown" && status !== "denied") {
+      IbeaconManager.startScanning("DE62C6D0-005E-4F32-B019-AA45124005CA");
     }
   };
 
   useEffect(() => {
     handleGetBeaconsByUUID();
-    const subscription = IbeaconManager.addBeaconListener(({ beacons }) => {
-      console.log("beacons: ", beacons);
+    const subscription = IbeaconManager.addBeaconListener(({ beacon }) => {
+      console.log("beacons: ", beacon);
     });
 
     return () => subscription.remove();

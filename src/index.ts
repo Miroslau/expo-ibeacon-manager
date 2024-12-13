@@ -11,7 +11,7 @@ type iBeacon = {
 };
 
 type ExpoIbeaconManagerEvents = {
-  beaconsDidRange: { beacons: iBeacon[] };
+  beaconDidRange: { beacon: iBeacon };
 };
 
 const eventEmitter = new EventEmitter(ExpoIbeaconManagerModule);
@@ -28,15 +28,15 @@ export async function getAuthorizationStatus(): Promise<string> {
   return ExpoIbeaconManagerModule.getAuthorizationStatus();
 }
 
-export async function requestWhenInUseAuthorization(): Promise<void> {
+export async function requestWhenInUseAuthorization(): Promise<string> {
   return ExpoIbeaconManagerModule.requestWhenInUseAuthorization();
 }
 
-export async function requestAlwaysAuthorization(): Promise<void> {
+export async function requestAlwaysAuthorization(): Promise<string> {
   return ExpoIbeaconManagerModule.requestAlwaysAuthorization();
 }
 
-export function addBeaconListener(listener: (event: ExpoIbeaconManagerEvents['beaconsDidRange']) => void) {
+export function addBeaconListener(listener: (event: ExpoIbeaconManagerEvents['beaconDidRange']) => void) {
   // @ts-ignore
-  return eventEmitter.addListener<ExpoIbeaconManagerEvents['beaconsDidRange']>('beaconsDidRange', listener);
+  return eventEmitter.addListener<ExpoIbeaconManagerEvents['beaconDidRange']>('beaconDidRange', listener);
 }

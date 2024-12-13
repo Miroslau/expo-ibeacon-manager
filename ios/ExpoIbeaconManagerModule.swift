@@ -8,6 +8,12 @@ private class LocationManagerDelegate: NSObject, CLLocationManagerDelegate, CBCe
     private var centralManager: CBCentralManager!
     private var sendEvent: ((String, [String: Any]) -> Void)?
     
+    override init() {
+        super.init()
+        self.locationManager = CLLocationManager()
+        self.locationManager.delegate = self
+    }
+    
     func setEventEmitter(_ emitter: @escaping (String, [String: Any]) -> Void) {
         self.sendEvent = emitter
     }
@@ -36,7 +42,12 @@ private class LocationManagerDelegate: NSObject, CLLocationManagerDelegate, CBCe
     func stopScanning() {
         if let beaconRegion = self.beaconRegion {
             self.locationManager.stopMonitoring(for: beaconRegion)
-            self.locationManager.stopRangingBeacons(in: beaconRegion)
+            if #available(iOS 13.0, *) {
+                let beaconConstraint = beaconRegion.beaconIdentityConstraint
+                self.locationManager.stopRangingBeacons(satisfying: beaconConstraint)
+            } else {
+                self.locationManager.stopRangingBeacons(in: beaconRegion)
+            }
             self.beaconRegion = nil
             self.locationManager = nil
         }
@@ -64,24 +75,33 @@ private class LocationManagerDelegate: NSObject, CLLocationManagerDelegate, CBCe
     func requestAlwaysAuthorization(_ resolve: @escaping RCTPromiseResolveBlock) {
         let locationManager = CLLocationManager()
         locationManager.delegate = self
-        locationManager.requestAlwaysAuthorization()
-        let status = CLLocationManager.authorizationStatus()
-        let statusString = statusToString(status)
-        resolve(["status": statusString])
+        if #available(iOS 14.0, *) {
+            locationManager.requestAlwaysAuthorization()
+        } else {
+            let status = CLLocationManager.authorizationStatus()
+            resolve(["status": statusToString(status)])
+        }
     }
     
     func requestWhenInUseAuthorization(_ resolve: @escaping RCTPromiseResolveBlock) {
         let locationManager = CLLocationManager()
         locationManager.delegate = self
-        locationManager.requestWhenInUseAuthorization()
-        let status = CLLocationManager.authorizationStatus()
-        let statusString = statusToString(status)
-        resolve(["status": statusString])
+        if #available(iOS 14.0, *) {
+            locationManager.requestWhenInUseAuthorization()
+        } else {
+            let status = CLLocationManager.authorizationStatus()
+            resolve(["status": statusToString(status)])
+        }
     }
     
     func getAuthorizationStatus(_ resolve: @escaping RCTPromiseResolveBlock) {
-        let status = CLLocationManager.authorizationStatus()
-        resolve(statusToString(status))
+        if #available(iOS 14.0, *) {
+            let status = locationManager.authorizationStatus
+            resolve(["status": statusToString(status)])
+        } else {
+            let status = CLLocationManager.authorizationStatus()
+            resolve(["status": statusToString(status)])
+        }
     }
     
     // Handle detection of beacons in the region
@@ -89,7 +109,17 @@ private class LocationManagerDelegate: NSObject, CLLocationManagerDelegate, CBCe
          _ manager: CLLocationManager, didRangeBeacons beacons: [CLBeacon], in region: CLBeaconRegion
        ) {
            print("beacons: ", beacons)
-         let beaconArray = beacons.map { beacon -> [String: Any] in
+           for beacon in beacons {
+               let beaconData: [String: Any] = [
+                "uuid": beacon.uuid.uuidString,
+                "major": beacon.major.intValue,
+                "minor": beacon.minor.intValue,
+                "distance": beacon.accuracy,
+                "rssi": beacon.rssi,
+               ]
+               sendEvent?("beaconDidRange", ["beacon": beaconData])
+           }
+         /*let beaconArray = beacons.map { beacon -> [String: Any] in
            return [
              "uuid": beacon.uuid.uuidString, // UUID of the beacon
              "major": beacon.major.intValue, // Major beacon value
@@ -97,15 +127,15 @@ private class LocationManagerDelegate: NSObject, CLLocationManagerDelegate, CBCe
              "distance": beacon.accuracy, // Accuracy of the distance to the beacon
              "rssi": beacon.rssi, // Beacon signal strength
            ]
-         }
-         sendEvent?("beaconsDidRange", ["beacons": beaconArray])
+         }*/
     }
     
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         if #available(iOS 14.0, *) {
             if manager.authorizationStatus == .authorizedAlways || manager.authorizationStatus == .authorizedWhenInUse {
+                guard let beaconConstraint = self.beaconRegion?.beaconIdentityConstraint else { return }
                 locationManager.startMonitoring(for: beaconRegion)
-                locationManager.startRangingBeacons(in: beaconRegion)
+                locationManager.startRangingBeacons(satisfying: beaconConstraint)
             }
         } else {
             if CLLocationManager.authorizationStatus() == .authorizedAlways || CLLocationManager.authorizationStatus() == .authorizedWhenInUse {
@@ -132,7 +162,7 @@ public class ExpoIbeaconManagerModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ExpoIbeaconManager")
       
-    Events("beaconsDidRange")
+    Events("beaconDidRange")
       
     Function("startScanning") { (uuid: String) in
       return locationManagerDelegate.startScanning(uuid)
